@@ -1,0 +1,66 @@
+#!/usr/bin/env ansible-playbook
+- name: export transit engine keys
+  hosts: localhost
+  become: no
+  gather_facts: no
+  # Please tell Ansible where you would like to export from.
+  environment:
+    VAULT_ADDR: "http://127.0.0.1:8200"
+    VAULT_TOKEN: "hvs.SPl4VbjTzYQ1V2Uu7ZEPpvPW"
+    VAULT_FORMAT: "yaml"
+  vars:
+    # Specify (one) mountpoint wher you keys are stores.
+    transit_engine_path: "transit/keys"
+
+  tasks:
+    - name: list all available transit keys
+      command:
+        cmd: vault list {{ transit_engine_path }}
+      register: transit_keys
+
+    - name: make target keys exportable
+      command:
+        cmd: vault write {{ transit_engine_path }}/{{ item }}/config allow_plaintext_backup=true exportable=true
+      loop: "{{ transit_keys.stdout_lines | replace('- ', '') }}"
+
+    - name: export each key and safe results in memory
+      command:
+        cmd: vault read {{ transit_engine_path | split('/') | first }}/backup/{{ item }}
+      loop: "{{ transit_keys.stdout_lines | replace('- ', '') }}"
+      register: exported_keys
+
+    - name: make target keys un-exportable
+      command:
+        cmd: vault write {{ transit_engine_path }}/{{ item }}/config allow_plaintext_backup=false exportable=false
+      loop: "{{ transit_keys.stdout_lines | replace('- ', '') }}"
+
+    - name: save keys to local files
+      copy:
+        content: "{{ item.stdout }}"
+        dest: export/{{ item.item }}
+      loop: "{{ exported_keys.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+- name: import transit engine keys
+  hosts: localhost
+  become: no
+  gather_facts: no
+  # Please tell Ansible where you would like to import to.
+  environment:
+    VAULT_ADDR: "http://127.0.0.1:8250"
+    VAULT_TOKEN: "hvs.t6h4KTh0IR8dPVRGIkfUi3oL"
+  vars:
+    transit_engine_path: "transit/keys"
+
+  tasks:
+    - name: find all exported keys
+      find:
+        paths: export
+      register: exported_keys
+
+    - name: include import.yml task
+      include_tasks: import.yml
+      loop: "{{ exported_keys.files }}"
+      loop_control:
+        label: "{{ item.path }}"

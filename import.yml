@@ -1,0 +1,19 @@
+---
+
+# We now have `item` available, but want to loop again.
+- name: load key
+  include_vars:
+    file: "{{ item.path }}"
+    # This time we'll call the items `key`.
+    name: key
+
+# The exported key contains information that we don't use.
+# This task just keeps the minimum.
+- name: prepare restore file
+  copy:
+    content: "{{ key.data.backup }}"
+    dest: "import/{{ item.path | replace('export/', '') }}.ready"
+
+- name: restore exported keys
+  command:
+    cmd: vault write {{ transit_engine_path | split('/') | first }}/restore/{{ item.path | replace('export/', '') }} backup=@{{ item.path | replace('export', 'import') }}.ready
