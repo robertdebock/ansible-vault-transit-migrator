@@ -1,19 +1,34 @@
+#!/usr/bin/env ansible-playbook
 ---
+- name: import transit engine keys
+  hosts: localhost
+  become: no
+  gather_facts: no
+  vars:
+    # Specify (one) mountpoint wher you keys are stores.
+    transit_engine_path: "transit"
+    # Please tell Ansible where you would like to import to.
+    VAULT_ADDR: "http://127.0.0.1:8250"
+    VAULT_TOKEN: "hvs.t6h4KTh0IR8dPVRGIkfUi3oL"
 
-# We now have `item` available, but want to loop again.
-- name: load key
-  include_vars:
-    file: "{{ item.path }}"
-    # This time we'll call the items `key`.
-    name: key
+  tasks:
+    - name: find exported keys
+      find:
+        paths: data
+      register: found_files
 
-# The exported key contains information that we don't use.
-# This task just keeps the minimum.
-- name: prepare restore file
-  copy:
-    content: "{{ key.data.backup }}"
-    dest: "import/{{ item.path | replace('export/', '') }}.ready"
-
-- name: restore exported keys
-  command:
-    cmd: vault write {{ transit_engine_path | split('/') | first }}/restore/{{ item.path | replace('export/', '') }} backup=@{{ item.path | replace('export', 'import') }}.ready
+    - name: import keys
+      uri:
+        url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/restore/{{ item.path | basename }}"
+        method: POST
+        headers: "{{ uri_headers }}"
+        body:
+          backup: "{{ lookup('file', item.path) }}"
+          force: yes
+        body_format: json
+        status_code:
+          - 200
+          - 204
+      loop: "{{ found_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"

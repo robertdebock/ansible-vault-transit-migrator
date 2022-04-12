@@ -1,0 +1,4 @@
+---
+
+uri_headers:
+  X-Vault-Token: "{{ VAULT_TOKEN }}"

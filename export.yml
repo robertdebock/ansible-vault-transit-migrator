@@ -1,0 +1,80 @@
+#!/usr/bin/env ansible-playbook
+---
+- name: export transit engine keys
+  hosts: localhost
+  become: no
+  gather_facts: no
+  vars:
+    # Specify (one) mountpoint wher you keys are stores.
+    transit_engine_path: "transit"
+    # Please tell Ansible where you would like to export from.
+    VAULT_ADDR: "http://127.0.0.1:8200"
+    VAULT_TOKEN: "hvs.SPl4VbjTzYQ1V2Uu7ZEPpvPW"
+
+  pre_tasks:
+    - name: ensure that the directory exists
+      file:
+        path: data
+        state: directory
+
+  tasks:
+    - name: list available keys
+      uri:
+        url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/keys"
+        method: LIST
+        headers: "{{ uri_headers }}"
+        return_content: yes
+      register: transit_keys
+      changed_when: no
+
+    - name: make key exportable
+      uri:
+        url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/keys/{{ item }}/config"
+        method: POST
+        headers: "{{ uri_headers }}"
+        body:
+          allow_plaintext_backup: yes
+          exportable: yes
+        body_format: json
+        status_code:
+          - 200
+          - 204
+      loop: "{{ transit_keys.json['data']['keys'] }}"
+      register: make_exportable
+
+    - name: export each key and safe results in memory
+      uri:
+        url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/backup/{{ item }}"
+        method: GET
+        headers: "{{ uri_headers }}"
+        body:
+          allow_plaintext_backup: yes
+          exportable: yes
+        body_format: json
+        status_code:
+          - 200
+          - 204
+      loop: "{{ transit_keys.json['data']['keys'] }}"
+      register: exported_keys
+
+    - name: make target keys un-exportable
+      uri:
+        url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/keys/{{ item }}/config"
+        method: POST
+        headers: "{{ uri_headers }}"
+        body:
+          allow_plaintext_backup: no
+          exportable: no
+        body_format: json
+        status_code:
+          - 200
+          - 204
+      loop: "{{ transit_keys.json['data']['keys'] }}"
+
+    - name: save keys to local files
+      copy:
+        content: "{{ item.json['data']['backup'] }}"
+        dest: data/{{ item.item }}
+      loop: "{{ exported_keys.results }}"
+      loop_control:
+        label: "{{ item.item }}"
