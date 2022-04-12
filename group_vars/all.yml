@@ -2,3 +2,4 @@
 
 uri_headers:
   X-Vault-Token: "{{ VAULT_TOKEN }}"
+  X-Vault-Namespace: "{{ vault_namespace | default(omit) }}"
