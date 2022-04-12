@@ -13,7 +13,6 @@ This code can be used to export transit keys from one HashiCorp Vault and import
 - The secrets engine should exist on the target ("Vault B").
 - The keys are stored locally on disk, please ensure to cleanup these files.
 - Keys are made un-exportable, no matter what state they were in.
-- No FQCN's are used.
 
 ## Setup
 

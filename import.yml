@@ -13,12 +13,12 @@
 
   tasks:
     - name: find exported keys
-      find:
+      ansible.builtin.find:
         paths: data
       register: found_files
 
     - name: import keys
-      uri:
+      ansible.builtin.uri:
         url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/restore/{{ item.path | basename }}"
         method: POST
         headers: "{{ uri_headers }}"

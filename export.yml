@@ -13,13 +13,13 @@
 
   pre_tasks:
     - name: ensure that the directory exists
-      file:
+      ansible.builtin.file:
         path: data
         state: directory
 
   tasks:
     - name: list available keys
-      uri:
+      ansible.builtin.uri:
         url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/keys"
         method: LIST
         headers: "{{ uri_headers }}"
@@ -28,7 +28,7 @@
       changed_when: no
 
     - name: make key exportable
-      uri:
+      ansible.builtin.uri:
         url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/keys/{{ item }}/config"
         method: POST
         headers: "{{ uri_headers }}"
@@ -43,7 +43,7 @@
       register: make_exportable
 
     - name: export each key and safe results in memory
-      uri:
+      ansible.builtin.uri:
         url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/backup/{{ item }}"
         method: GET
         headers: "{{ uri_headers }}"
@@ -58,7 +58,7 @@
       register: exported_keys
 
     - name: make target keys un-exportable
-      uri:
+      ansible.builtin.uri:
         url: "{{ VAULT_ADDR }}/v1/{{ transit_engine_path }}/keys/{{ item }}/config"
         method: POST
         headers: "{{ uri_headers }}"
@@ -72,7 +72,7 @@
       loop: "{{ transit_keys.json['data']['keys'] }}"
 
     - name: save keys to local files
-      copy:
+      ansible.builtin.copy:
         content: "{{ item.json['data']['backup'] }}"
         dest: data/{{ item.item }}
       loop: "{{ exported_keys.results }}"
